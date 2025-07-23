@@ -25,7 +25,8 @@ phases:
       - localstack start -d
   pre_build:
     commands:
-      - bin/deploy.sh
+      - bin/build_lambdas.sh
+      - deployment/awslocal/deploy.sh
   build:
     commands:
       - pytest tests

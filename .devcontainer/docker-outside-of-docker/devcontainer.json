@@ -1,0 +1,23 @@
+{
+	"name": "LocalStack DooD setup",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+	// 👇 Features to add to the Dev Container. More info: https://containers.dev/implementors/features.
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		"ghcr.io/localstack/devcontainer-feature/localstack-cli:latest": {
+			"version": "latest",
+			"awslocal": true,  // if true, add in features manually: ghcr.io/devcontainers/features/aws-cli
+			"cdklocal": false,  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/aws-cdk
+			"pulumilocal": false,  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/pulumi
+			"samlocal": false,  // if true, add in features manually: ghcr.io/customink/codespaces-features/sam-cli
+			"tflocal": false  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/terraform-asdf
+		},
+		"ghcr.io/devcontainers/features/aws-cli:1": {},
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.11"
+		}
+	}
+}

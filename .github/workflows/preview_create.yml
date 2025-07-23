@@ -7,7 +7,6 @@ on:
       - ./*.md
       - LICENSE
       - .circleci/*
-      - .gitlab-ci.yml
 
 jobs:
   test:
@@ -30,16 +29,16 @@ jobs:
           pip install awscli-local
 
       - name: Deploy Preview
-        uses: LocalStack/setup-localstack/preview@main
+        uses: LocalStack/setup-localstack@main
         env:
-          AWS_DEFAULT_REGION: us-east-1
-          AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          localstack-api-key: ${{ secrets.LOCALSTACK_API_KEY }}
+          state-backend: ephemeral
+          state-action: start
+          include-preview: 'true'
+          install-awslocal: 'true'
           preview-cmd: |
             # Add your custom deployment commands here. 
             # Below is an example for the Image resizer application.
-            bin/deploy.sh
+            bin/build_lambdas.sh && deployment/awslocal/deploy.sh

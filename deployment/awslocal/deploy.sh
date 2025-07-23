@@ -14,7 +14,6 @@ awslocal sns subscribe \
     --protocol email \
     --notification-endpoint my-email@example.com
 
-(cd lambdas/presign; rm -f lambda.zip; zip lambda.zip handler.py)
 awslocal lambda create-function \
     --function-name presign \
     --runtime python3.11 \
@@ -29,8 +28,6 @@ awslocal lambda wait function-active-v2 --function-name presign
 awslocal lambda create-function-url-config \
     --function-name presign \
     --auth-type NONE
-
-(cd lambdas/list; rm -f lambda.zip; zip lambda.zip handler.py)
 awslocal lambda create-function \
     --function-name list \
     --runtime python3.11 \
@@ -46,29 +43,6 @@ awslocal lambda create-function-url-config \
     --function-name list \
     --auth-type NONE
 
-os=$(uname -s)
-if [ "$os" == "Darwin" ]; then
-    (
-        cd lambdas/resize
-        rm -rf libs lambda.zip
-        docker run --platform linux/x86_64 --rm -v "$PWD":/var/task "public.ecr.aws/sam/build-python3.11" /bin/sh -c "pip3 install -r requirements.txt -t libs; exit"
-
-        cd libs && zip -r ../lambda.zip . && cd ..
-        zip lambda.zip handler.py
-        rm -rf libs
-    )
-else
-    (
-        cd lambdas/resize
-        rm -rf package lambda.zip
-        mkdir package
-        pip3 install -r requirements.txt --platform manylinux2014_x86_64 --only-binary=:all: -t package
-        zip lambda.zip handler.py
-        cd package
-        zip -r ../lambda.zip *;
-    )
-fi
-
 awslocal lambda create-function \
     --function-name resize \
     --runtime python3.11 \
@@ -82,7 +56,7 @@ awslocal lambda create-function \
 awslocal lambda wait function-active-v2 --function-name resize
 awslocal lambda put-function-event-invoke-config --function-name resize --maximum-event-age-in-seconds 3600 --maximum-retry-attempts 0
 
-fn_resize_arn=$(awslocal lambda get-function --function-name resize | jq -r .Configuration.FunctionArn)
+fn_resize_arn=$(awslocal lambda get-function --function-name resize --output json | jq -r .Configuration.FunctionArn)
 awslocal s3api put-bucket-notification-configuration \
     --bucket localstack-thumbnails-app-images \
     --notification-configuration "{\"LambdaFunctionConfigurations\": [{\"LambdaFunctionArn\": \"$fn_resize_arn\", \"Events\": [\"s3:ObjectCreated:*\"]}]}"
@@ -93,9 +67,9 @@ awslocal s3 website s3://webapp --index-document index.html
 
 echo
 echo "Fetching function URL for 'presign' Lambda..."
-awslocal lambda list-function-url-configs --function-name presign | jq -r '.FunctionUrlConfigs[0].FunctionUrl'
+awslocal lambda list-function-url-configs --function-name presign --output json | jq -r '.FunctionUrlConfigs[0].FunctionUrl'
 echo "Fetching function URL for 'list' Lambda..."
-awslocal lambda list-function-url-configs --function-name list | jq -r '.FunctionUrlConfigs[0].FunctionUrl'
+awslocal lambda list-function-url-configs --function-name list --output json | jq -r '.FunctionUrlConfigs[0].FunctionUrl'
 
 echo "Now open the Web app under https://webapp.s3-website.localhost.localstack.cloud:4566/"
 echo "and paste the function URLs above (make sure to use https:// as protocol)"

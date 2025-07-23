@@ -1,0 +1,56 @@
+{
+	"name": "LocalStack DinD setup",
+	"image": "mcr.microsoft.com/devcontainers/base:jammy",
+
+	"remoteEnv": {
+		// Activate LocalStack Pro: https://docs.localstack.cloud/getting-started/auth-token/
+		"LOCALSTACK_AUTH_TOKEN": "${localEnv:LOCALSTACK_AUTH_TOKEN}",  // required for Pro, not processed via template due to security reasons
+		"LOCALSTACK_API_KEY": "${localEnv:LOCALSTACK_API_KEY}",
+		// LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+		"ACTIVATE_PRO": true,
+		"DEBUG": true,
+		"LS_LOG": "trace",
+		"PERSISTENCE": false,
+		"AWS_ENDPOINT_URL": "http://localhost.localstack.cloud:4566",
+		"AUTO_LOAD_POD": "",
+		"ENFORCE_IAM": false,
+		"AWS_REGION": "us-east-1",
+		"AWS_DEFAULT_REGION": "us-east-1",
+		"IMAGE_NAME": "localstack/localstack-pro:latest",
+		"LOCALSTACK_VOLUME_DIR": "/data"
+	},
+
+	// 👇 Features to add to the Dev Container. More info: https://containers.dev/implementors/features.
+	"features": {
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/localstack/devcontainer-feature/localstack-cli:latest": {
+			"version": "latest",
+			"awslocal": true,  // if true, add in features manually: ghcr.io/devcontainers/features/aws-cli
+			"cdklocal": false,  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/aws-cdk
+			"pulumilocal": false,  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/pulumi
+			"samlocal": false,  // if true, add in features manually: ghcr.io/customink/codespaces-features/sam-cli
+			"tflocal": false  // if true, add in features manually: ghcr.io/devcontainers-contrib/features/terraform-asdf
+		},
+		"ghcr.io/devcontainers/features/aws-cli:1": {},
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.11"
+		}
+	},
+
+	// 👇 Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "type localstack; true && localstack start -d || true",
+	"mounts": [
+		{
+			// to persist build data and images
+			"source": "dind-var-lib-docker",
+			"target": "/var/lib/docker",
+			"type": "volume"
+		}, 
+		{ 
+			"source": "./.volume",
+			"target": "/data",
+			"type": "bind",
+			"consistency": "cached"
+		}
+	]
+}

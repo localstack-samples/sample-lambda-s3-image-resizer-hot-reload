@@ -1,74 +1,110 @@
-name: Test Released Cloud Pods
+name: Create and Test LocalStack State File
 
 on:
   schedule:
-    # “At 00:00 on Saturday.”
+    # At 00:00 on Saturday.
     - cron: "0 0 * * 6"
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
-  get-releases:
-    name: Retrieve Released Cloud Pods
+  create-state-file:
+    name: Create State Files
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      state_files_artifact_name: state-file-${{ github.run_id }}
     steps:
-    - id: set-matrix
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        output=$(gh api repos/$GITHUB_REPOSITORY/releases | jq -r '[.[] | select(.tag_name|startswith("v")|not) | .tag_name]')
-        output=$(echo $output | tr '\n' ' ')
-        echo "matrix=$output" >> $GITHUB_OUTPUT
-  
-  test-pod-release:
-    needs: get-releases
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: 
-        tag: ${{ fromJson(needs.get-releases.outputs.matrix) }}
-    steps:
-      # checkout to run the tests later on
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Retrieve Pod
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # TODO the download url seems to follow the pattern $GITHUB_REPOSITORY/releases/download/{TAG}/{ASSET_NAME}
-          # alternatively we can query the asset-id, and browser_download_url, but it seems like an overhead
-          # asset_id=$(gh api repos/$GITHUB_REPOSITORY/releases/tags/latest | jq -r '.assets[]' | jq --arg DB $DB -c 'select(.name=="release-pod-\( $DB ).zip") | .id)
-          # download_url=$(gh api repos/$GITHUB_REPOSITORY/releases/assets/$asset_id | jq -r ".browser_download_url")
-          download_url="https://github.com/$GITHUB_REPOSITORY/releases/download/${{ matrix.tag }}/release-pod.zip"
-          curl -L $download_url --output release-pod.zip
-          ls -la
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements-dev.txt --upgrade
 
       - name: Start LocalStack
         uses: LocalStack/setup-localstack@main
         with:
-          image-tag: ${{ matrix.tag }}
           use-pro: 'true'
           install-awslocal: 'true'
         env:
           DEBUG: 1
-          POD_LOAD_CLI_TIMEOUT: 300
-          LOCALSTACK_API_KEY: ${{ secrets.LOCALSTACK_API_KEY }}
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
 
-      - name: Inject Pod
-        env:
-          LOCALSTACK_API_KEY: ${{ secrets.LOCALSTACK_API_KEY }}
+      - name: Deploy Infrastructure (Example)
         run: |
-          localstack state import release-pod.zip
+          bin/build_lambdas.sh && deployment/awslocal/deploy.sh
+
+      - name: Export LocalStack State File
+        id: export_state
+        env:
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+        run: |
+          echo "Exporting LocalStack state..."
+          localstack state export state-file.zip
+          ls -la state-file.zip # Verify the file exists
+          echo "state_files_artifact_name=state-file-${{ github.run_id }}" >> $GITHUB_OUTPUT
+
+      - name: Upload State File Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.export_state.outputs.state_files_artifact_name }}
+          path: state-file.zip
+          retention-days: 1
+
+  test-state-file:
+    name: Test State File
+    needs: create-state-file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Test Dependencies
+        run: |
+          pip install -r requirements-dev.txt --upgrade
+
+      - name: Start LocalStack
+        uses: LocalStack/setup-localstack@main
+        with:
+          use-pro: 'true'
+          install-awslocal: 'true'
+        env:
+          DEBUG: 1
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+
+      - name: Download State File Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.create-state-file.outputs.state_files_artifact_name }}
+
+      - name: Inject State File
+        env:
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+        run: |
+          echo "Importing LocalStack state from state-file.zip..."
+          ls -la # Check if download was successful
+          localstack state import state-file.zip
 
       - name: Run Tests
         env:
@@ -77,11 +113,10 @@ jobs:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
         run: |
-          pip install -r requirements-dev.txt
           pytest tests
 
-      - name: Show Logs
-        if: failure()
+      - name: Show LocalStack Logs
+        if: always()
         run: |
           localstack logs
 
@@ -98,10 +133,14 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Prevent Workflows from getting Stale
-        if: always()
-        uses: gautamkrishnar/keepalive-workflow@v1
+      - name: Generate a Diagnostic Report
+        if: failure()
+        run: |
+          curl -s localhost:4566/_localstack/diagnose | gzip -cf > diagnose.json.gz
+
+      - name: Upload the Diagnostic Report
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          # this message should prevent automatic triggering of workflows
-          # see https://docs.github.com/en/actions/managing-workflow-runs/skipping-workflow-runs
-          commit_message: "[skip ci] Automated commit by Keepalive Workflow to keep the repository active"
+          name: diagnose.json.gz
+          path: ./diagnose.json.gz

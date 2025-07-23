@@ -11,6 +11,7 @@ package-lock.json
 /nosetests.xml
 
 .env
+!.devcontainer/**/.env
 venv
 /.venv*
 /.coverage
@@ -59,3 +60,28 @@ volume/
 # lambda packages
 lambdas/*/package/
 lambdas/*/lambda.zip
+terraform/*/*.zip
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+*.tfvars
+*.tfvars.json
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.terraform.tfstate.lock.info
+
+.terraformrc
+terraform.rc

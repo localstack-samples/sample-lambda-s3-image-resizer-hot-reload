@@ -31,10 +31,12 @@ default:
     - mkdir -p $PIP_CACHE_DIR
     - python3 -m pip install localstack awscli awscli-local
     - docker pull localstack/localstack-pro:latest
-    - dind_ip="$(getent hosts docker | cut -d' ' -f1)"
-    - echo "${dind_ip} localhost.localstack.cloud " >> /etc/hosts
+    # Gitlab has changed to ipv6, but LocalStack does not support it
+    - dind_ip="$(getent ahostsv4 docker | cut -d' ' -f1 | head -n1)"
+    - echo -e "${dind_ip}\tlocalhost.localstack.cloud\n" >> /etc/hosts
     - localstack start -d
     - localstack wait -t 30
+    - mkdir -p /usr/lib/localstack
     - (test -f ./ls-state-pod.zip && localstack state import ./ls-state-pod.zip) || true
   cache:
     paths:
@@ -55,9 +57,10 @@ deploy:
         - .github/*
     - when: always
   script:
-    - ./bin/deploy.sh
-    - localstack state export ./ls-state-pod.zip
-    - localstack logs
+    - ./bin/build_lambdas.sh
+    - ./deployment/awslocal/deploy.sh
+    - mkdir -p /usr/lib/localstack
+    - localstack state export ls-state-pod.zip
 
 test:
   stage: test
@@ -69,6 +72,8 @@ test:
         - .circleci/*
         - .github/*
     - when: always
+  needs:
+    - deploy
   before_script:
     - *default_before_scripts
     - python3 -m pip install -r requirements-dev.txt

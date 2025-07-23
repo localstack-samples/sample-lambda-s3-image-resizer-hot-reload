@@ -27,9 +27,15 @@ jobs:
             pip3 install -r requirements-dev.txt --upgrade
       - localstack/wait
       - run:
+          name: Build lambdas
+          command:
+            bin/build_lambdas.sh
+            
+      - run:
           name: Deploy infrastructure
           command:
-            bin/deploy.sh
+            deployment/awslocal/deploy.sh
+            
       - run:
           name: Export state
           command: localstack state export ls-state.zip

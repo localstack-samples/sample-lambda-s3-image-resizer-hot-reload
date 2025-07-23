@@ -22,15 +22,90 @@ on:
         type: choice
         options:
           - ubuntu-latest
-          - macos-latest
+          - macos-13
 
 
 jobs:
-  run-it-tests-job:
+  run-terraform-deployment:
+    name: Run Terraform Deployment
     runs-on: ${{ inputs.runner-os || 'ubuntu-latest' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        id: setup-python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install Terraform Local
+        run: |
+          pip install --upgrade terraform-local
+
+      - name: Set up Project
+        run: |
+          pip install -r requirements-dev.txt
+
+      - name: Start LocalStack
+        uses: LocalStack/setup-localstack@v0.2.4
+        with:
+          image-tag: 'latest'
+          use-pro: 'true'
+          configuration: LS_LOG=trace
+          install-awslocal: 'true'
+        env:
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+
+      - name: Build lambdas
+        run: |
+          bin/build_lambdas.sh
+
+      - name: Deploy infrastructure
+        run: |
+          cd deployment/terraform
+          tflocal init
+          tflocal apply --auto-approve
+
+      - name: Show localstack logs
+        if: always()
+        run: |
+          localstack logs
+
+      - name: Send a Slack notification
+        if: failure() || github.event_name != 'pull_request'
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          notification_title: "{workflow} has {status_message}"
+          message_format: "{emoji} *{workflow}* {status_message} in <{repo_url}|{repo}>"
+          footer: "Linked Repo <{repo_url}|{repo}> | <{run_url}|View Workflow run>"
+          notify_when: "failure"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Generate a Diagnostic Report
+        if: failure()
+        run: |
+          curl -s localhost:4566/_localstack/diagnose | gzip -cf > diagnose.json.gz
+
+      - name: Upload the Diagnostic Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnose.json.gz
+          path: ./diagnose.json.gz
+
+  run-integration-tests-job:
+    name: Run Integration Tests
+    runs-on: ${{ inputs.runner-os || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         id: setup-python
@@ -39,9 +114,9 @@ jobs:
           python-version: 3.11
 
       - name: Docker setup (macos only)
-        id: setup-docker-mac
         if: ${{ runner.os == 'macOS' }}
         run: |
+          brew install colima
           brew install docker
           colima start
 
@@ -50,18 +125,22 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@main
+        uses: LocalStack/setup-localstack@v0.2.4
         with:
           image-tag: 'latest'
           use-pro: 'true'
           configuration: LS_LOG=trace
           install-awslocal: 'true'
         env:
-          LOCALSTACK_API_KEY: ${{ secrets.LOCALSTACK_API_KEY }}
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+
+      - name: Build lambdas
+        run: |
+          bin/build_lambdas.sh
 
       - name: Deploy infrastructure
         run: |
-          bin/deploy.sh
+          deployment/awslocal/deploy.sh
 
       - name: Run Tests
         env:
@@ -97,7 +176,7 @@ jobs:
 
       - name: Upload the Diagnostic Report
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: diagnose.json.gz
           path: ./diagnose.json.gz

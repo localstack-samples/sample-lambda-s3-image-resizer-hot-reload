@@ -1,5 +1,8 @@
 name: Sync repo to Gitlab
-on: [ push, delete, workflow_dispatch ]
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 20 * * *'
 
 jobs:
   sync:
@@ -7,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
       - name: Mirroring Repository
-        uses: pixta-dev/repository-mirroring-action@v1.1.1
+        uses: fscarmen/repository-mirroring-action@v1.0.0
         with:
           target_repo_url: git@gitlab.com:localstack.cloud/samples/sample-serverless-image-resizer-s3-lambda.git
           ssh_private_key: ${{ secrets.GITLAB_SSH_PRIVATE_KEY }}
