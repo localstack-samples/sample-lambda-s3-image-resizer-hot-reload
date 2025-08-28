@@ -62,7 +62,7 @@ jobs:
 
       - name: Build lambdas
         run: |
-          bin/build_lambdas.sh
+          deployment/build-lambdas.sh
 
       - name: Deploy infrastructure
         run: |
@@ -136,7 +136,7 @@ jobs:
 
       - name: Build lambdas
         run: |
-          bin/build_lambdas.sh
+          deployment/build-lambdas.sh
 
       - name: Deploy infrastructure
         run: |

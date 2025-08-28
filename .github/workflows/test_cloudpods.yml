@@ -48,7 +48,7 @@ jobs:
 
       - name: Deploy Infrastructure (Example)
         run: |
-          bin/build_lambdas.sh && deployment/awslocal/deploy.sh
+          deployment/build-lambdas.sh && deployment/awslocal/deploy.sh
 
       - name: Export LocalStack State File
         id: export_state
