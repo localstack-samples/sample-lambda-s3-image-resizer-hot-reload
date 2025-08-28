@@ -29,7 +29,7 @@ jobs:
       - run:
           name: Build lambdas
           command:
-            bin/build_lambdas.sh
+            deployment/build-lambdas.sh
             
       - run:
           name: Deploy infrastructure

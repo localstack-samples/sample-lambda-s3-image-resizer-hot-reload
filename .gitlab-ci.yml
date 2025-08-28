@@ -57,7 +57,7 @@ deploy:
         - .github/*
     - when: always
   script:
-    - ./bin/build_lambdas.sh
+    - ./deployment/build-lambdas.sh
     - ./deployment/awslocal/deploy.sh
     - mkdir -p /usr/lib/localstack
     - localstack state export ls-state-pod.zip

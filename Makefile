@@ -28,7 +28,7 @@ install:
 ## Build the Lambda functions
 build-lambdas:
 	@echo "Building the Lambda functions..."
-	bash -c "source venv/bin/activate && bin/build_lambdas.sh"
+	bash -c "source venv/bin/activate && deployment/build-lambdas.sh"
 	@echo "Lambda functions built successfully."
 
 ## Deploy the application locally using `awslocal`, a wrapper for the AWS CLI

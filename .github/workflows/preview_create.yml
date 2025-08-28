@@ -41,4 +41,4 @@ jobs:
           preview-cmd: |
             # Add your custom deployment commands here. 
             # Below is an example for the Image resizer application.
-            bin/build_lambdas.sh && deployment/awslocal/deploy.sh
+            deployment/build-lambdas.sh && deployment/awslocal/deploy.sh

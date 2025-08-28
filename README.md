@@ -71,10 +71,16 @@ localstack auth set-token <your-auth-token>
 localstack start
 ```
 
+Before deploying the sample application, you need to build the Lambda functions. Run the following command:
+
+```shell
+deployment/build-lambdas.sh
+```
+
 To deploy the sample application, run the following command:
 
 ```shell
-bin/deploy.sh
+deployment/awslocal/deploy.sh
 ```
 
 The output will show the Lambda function URLs that you can use in the web application:
