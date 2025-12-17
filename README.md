@@ -45,7 +45,7 @@ To run the sample application, you need to install the required dependencies.
 First, clone the repository:
 
 ```shell
-git clone https://github.com/localstack/sample-lambda-s3-image-resizer-hot-reload.git
+git clone https://github.com/localstack-samples/sample-lambda-s3-image-resizer-hot-reload.git
 ```
 
 Then, navigate to the project directory:
