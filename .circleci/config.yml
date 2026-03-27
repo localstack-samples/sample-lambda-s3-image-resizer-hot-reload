@@ -8,7 +8,6 @@ jobs:
     machine:
       image: ubuntu-2204:current
     environment:
-      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
       AWS_DEFAULT_REGION: us-east-1
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
@@ -21,45 +20,62 @@ jobs:
           keys:
             - python-deps-{{ checksum "requirements-dev.txt" }}
             - python-deps
-      # - run:
-      #     name: Install Python 3.11
-      #     command: |
-      #       test -d /opt/circleci/.pyenv/versions/3.11.1 || pyenv install 3.11.1
-      #       pyenv global 3.11.1
+
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            pip3 install localstack awscli-local[ver1]
-            # echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+
+      - run:
+          name: Verify and configure LocalStack token
+          command: |
+            source "$BASH_ENV"
+            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
+              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
+              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
+              exit 1
+            fi
+            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
+            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
+
       - run:
           name: Start LocalStack
           command: |
-            # source "$BASH_ENV"
+            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
+
       - run:
           name: Install dependencies
           command: pip3 install -r requirements-dev.txt --upgrade
+
       - run:
           name: Build lambdas
           command: deployment/build-lambdas.sh
+
       - run:
           name: Deploy infrastructure
           command: deployment/awslocal/deploy.sh
+
       - run:
           name: Export state
           command: |
             source "$BASH_ENV"
             localstack state export ls-state.zip
+
       - persist_to_workspace:
           root: .
           paths:
             - ls-state.zip
+
       - save_cache:
           paths:
             - /opt/circleci/.pyenv/versions/3.11.1
           key: python-deps-{{ checksum "requirements-dev.txt" }}
+
       - store_artifacts:
           path: ls-state.zip
 
@@ -67,7 +83,6 @@ jobs:
     machine:
       image: ubuntu-2204:current
     environment:
-      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
       AWS_DEFAULT_REGION: us-east-1
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
@@ -78,35 +93,58 @@ jobs:
       - checkout
       - restore_cache:
           key: python-deps-
+
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            pip3 install localstack awscli-local[ver1]
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+
+      - run:
+          name: Verify and configure LocalStack token
+          command: |
+            source "$BASH_ENV"
+            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
+              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
+              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
+              exit 1
+            fi
+            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
+            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
+
       - run:
           name: Start LocalStack
           command: |
+            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
+
       - run:
           name: Install dependencies
           command: pip3 install -r requirements-dev.txt
+
       - attach_workspace:
           at: .
+
       - run:
           name: Import state
           command: |
             source "$BASH_ENV"
             test -f ls-state.zip && localstack state import ls-state.zip
+
       - run:
           name: Run tests
           command: pytest tests
+
       - run:
           when: on_fail
           name: Dump LocalStack logs
           command: |
             source "$BASH_ENV"
             localstack logs | tee localstack.log
+
       - store_artifacts:
           path: localstack.log
 
