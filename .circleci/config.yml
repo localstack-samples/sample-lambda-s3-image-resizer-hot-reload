@@ -25,10 +25,12 @@ jobs:
           name: Install LocalStack CLI + awslocal
           command: |
             pip3 localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
 
       - run:
           name: Start LocalStack
           command: |
+            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
@@ -48,6 +50,7 @@ jobs:
       - run:
           name: Export state
           command: |
+            source "$BASH_ENV"
             localstack state export ls-state.zip
 
       - persist_to_workspace:
@@ -82,6 +85,7 @@ jobs:
           name: Install LocalStack CLI + awslocal
           command: |
             pip3 install localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
 
       - run:
           name: Start LocalStack
@@ -108,6 +112,7 @@ jobs:
           when: on_fail
           name: Dump LocalStack logs
           command: |
+            source "$BASH_ENV"
             localstack logs | tee localstack.log
 
       - store_artifacts:
