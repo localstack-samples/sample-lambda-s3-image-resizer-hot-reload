@@ -24,8 +24,21 @@ jobs:
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            pip3 localstack awscli-local[ver1]
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
             echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+
+      - run:
+          name: Verify and configure LocalStack token
+          command: |
+            source "$BASH_ENV"
+            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
+              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
+              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
+              exit 1
+            fi
+            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
+            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
 
       - run:
           name: Start LocalStack
@@ -84,8 +97,21 @@ jobs:
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            pip3 install localstack awscli-local[ver1]
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
             echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+
+      - run:
+          name: Verify and configure LocalStack token
+          command: |
+            source "$BASH_ENV"
+            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
+              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
+              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
+              exit 1
+            fi
+            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
+            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
 
       - run:
           name: Start LocalStack
