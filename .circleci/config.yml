@@ -21,15 +21,18 @@ jobs:
       - run:
           name: Install Python 3.11
           command: |
-            # Currently highest available 3.11 on CircleCI runner
             test -d /opt/circleci/.pyenv/versions/3.11.1 || pyenv install 3.11.1
             pyenv global 3.11.1
       - run:
-          name: Install LocalStack CLI
-          command: python3 -m pip install localstack awscli-local[ver1]
+          name: Install LocalStack CLI + awslocal
+          command: |
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
       - run:
           name: Start LocalStack
           command: |
+            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
@@ -44,7 +47,9 @@ jobs:
           command: deployment/awslocal/deploy.sh
       - run:
           name: Export state
-          command: localstack state export ls-state.zip
+          command: |
+            source "$BASH_ENV"
+            localstack state export ls-state.zip
       - persist_to_workspace:
           root: .
           paths:
@@ -72,14 +77,18 @@ jobs:
       - restore_cache:
           key: python-deps-
       - run:
-          name: Choose python version
+          name: Choose Python version
           command: pyenv global 3.11.1
       - run:
-          name: Install LocalStack CLI
-          command: python3 -m pip install localstack awscli-local[ver1]
+          name: Install LocalStack CLI + awslocal
+          command: |
+            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user localstack awscli-local[ver1]
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
       - run:
           name: Start LocalStack
           command: |
+            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
@@ -90,14 +99,18 @@ jobs:
           at: .
       - run:
           name: Import state
-          command: test -f ls-state.zip && localstack state import ls-state.zip
+          command: |
+            source "$BASH_ENV"
+            test -f ls-state.zip && localstack state import ls-state.zip
       - run:
-          name: Run Tests
+          name: Run tests
           command: pytest tests
       - run:
           when: on_fail
-          name: Dump Localstack logs
-          command: localstack logs | tee localstack.log
+          name: Dump LocalStack logs
+          command: |
+            source "$BASH_ENV"
+            localstack logs | tee localstack.log
       - store_artifacts:
           path: localstack.log
 
