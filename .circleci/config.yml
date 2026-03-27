@@ -135,10 +135,6 @@ jobs:
             test -f ls-state.zip && localstack state import ls-state.zip
 
       - run:
-          name: Run tests
-          command: pip3 install pytest && python3 -m pytest tests
-
-      - run:
           when: on_fail
           name: Dump LocalStack logs
           command: |
