@@ -1,13 +1,17 @@
 version: 2.1
 
-
-orbs:
-  localstack: localstack/platform@2.1
-
-
 jobs:
   save-state:
-    executor: localstack/default
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      DEBUG: 1
+      LS_LOG: trace
     steps:
       - checkout
       - restore_cache:
@@ -20,22 +24,24 @@ jobs:
             # Currently highest available 3.11 on CircleCI runner
             test -d /opt/circleci/.pyenv/versions/3.11.1 || pyenv install 3.11.1
             pyenv global 3.11.1
-      - localstack/start        
+      - run:
+          name: Install LocalStack CLI
+          command: python3 -m pip install localstack awscli-local[ver1]
+      - run:
+          name: Start LocalStack
+          command: |
+            docker pull localstack/localstack:latest
+            localstack start -d
+            localstack wait -t 60
       - run:
           name: Install dependencies
-          command:
-            pip3 install -r requirements-dev.txt --upgrade
-      - localstack/wait
+          command: pip3 install -r requirements-dev.txt --upgrade
       - run:
           name: Build lambdas
-          command:
-            deployment/build-lambdas.sh
-            
+          command: deployment/build-lambdas.sh
       - run:
           name: Deploy infrastructure
-          command:
-            deployment/awslocal/deploy.sh
-            
+          command: deployment/awslocal/deploy.sh
       - run:
           name: Export state
           command: localstack state export ls-state.zip
@@ -50,30 +56,36 @@ jobs:
       - store_artifacts:
           path: ls-state.zip
 
-
   load-state:
-    executor: localstack/default
+    machine:
+      image: ubuntu-2204:current
     environment:
-        AWS_DEFAULT_REGION: us-east-1
-        AWS_REGION: us-east-1
-        AWS_ACCESS_KEY_ID: test
-        AWS_SECRET_ACCESS_KEY: test
-        DEBUG: 1
-        LS_LOG: trace
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      DEBUG: 1
+      LS_LOG: trace
     steps:
+      - checkout
       - restore_cache:
           key: python-deps-
       - run:
           name: Choose python version
-          command:
-            pyenv global 3.11.1
-      - localstack/start        
-      - checkout
+          command: pyenv global 3.11.1
+      - run:
+          name: Install LocalStack CLI
+          command: python3 -m pip install localstack awscli-local[ver1]
+      - run:
+          name: Start LocalStack
+          command: |
+            docker pull localstack/localstack:latest
+            localstack start -d
+            localstack wait -t 60
       - run:
           name: Install dependencies
-          command:
-            pip3 install -r requirements-dev.txt
-      - localstack/wait
+          command: pip3 install -r requirements-dev.txt
       - attach_workspace:
           at: .
       - run:
@@ -81,15 +93,13 @@ jobs:
           command: test -f ls-state.zip && localstack state import ls-state.zip
       - run:
           name: Run Tests
-          command:
-            pytest tests
+          command: pytest tests
       - run:
           when: on_fail
           name: Dump Localstack logs
           command: localstack logs | tee localstack.log
       - store_artifacts:
           path: localstack.log
-
 
 workflows:
   do-tests:
