@@ -136,7 +136,7 @@ jobs:
 
       - run:
           name: Run tests
-          command: pip3 insyall pytest && pytest tests
+          command: pip3 install pytest && pytest tests
 
       - run:
           when: on_fail
