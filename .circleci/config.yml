@@ -24,26 +24,11 @@ jobs:
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            python3 -m pip install --user --upgrade pip
-            python3 -m pip install --user localstack awscli-local[ver1]
-            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
-
-      - run:
-          name: Verify and configure LocalStack token
-          command: |
-            source "$BASH_ENV"
-            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
-              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
-              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
-              exit 1
-            fi
-            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
-            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
+            pip3 localstack awscli-local[ver1]
 
       - run:
           name: Start LocalStack
           command: |
-            source "$BASH_ENV"
             docker pull localstack/localstack:latest
             localstack start -d
             localstack wait -t 60
@@ -63,7 +48,6 @@ jobs:
       - run:
           name: Export state
           command: |
-            source "$BASH_ENV"
             localstack state export ls-state.zip
 
       - persist_to_workspace:
@@ -97,21 +81,7 @@ jobs:
       - run:
           name: Install LocalStack CLI + awslocal
           command: |
-            python3 -m pip install --user --upgrade pip
-            python3 -m pip install --user localstack awscli-local[ver1]
-            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
-
-      - run:
-          name: Verify and configure LocalStack token
-          command: |
-            source "$BASH_ENV"
-            if [ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]; then
-              echo "LOCALSTACK_AUTH_TOKEN is not set in this job."
-              echo "Set it in CircleCI Project Settings > Environment Variables or via Context."
-              exit 1
-            fi
-            echo "LOCALSTACK_AUTH_TOKEN is present (length=${#LOCALSTACK_AUTH_TOKEN})"
-            localstack auth set-token "$LOCALSTACK_AUTH_TOKEN"
+            pip3 install localstack awscli-local[ver1]
 
       - run:
           name: Start LocalStack
@@ -138,7 +108,6 @@ jobs:
           when: on_fail
           name: Dump LocalStack logs
           command: |
-            source "$BASH_ENV"
             localstack logs | tee localstack.log
 
       - store_artifacts:
