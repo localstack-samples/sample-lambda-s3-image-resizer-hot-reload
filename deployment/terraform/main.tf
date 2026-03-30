@@ -6,16 +6,37 @@ locals {
   images_bucket               = "localstack-thumbnails-app-images"
   image_resized_bucket        = "localstack-thumbnails-app-resized"
   website_bucket              = "localstack-website"
-  failure_notifications_email = "my-email@example.com"
+
+  failure_notifications_email = "failure-notifications@example.com"
+}
+
+# AWS profile
+provider "aws" {
+  region  = "us-east-1"
+  profile = "myuser-sso-admin"
 }
 
 # S3
 resource "aws_s3_bucket" "images_bucket" {
   bucket = local.images_bucket
+  force_destroy = true
 }
 
 resource "aws_s3_bucket" "image_resized_bucket" {
   bucket = local.image_resized_bucket
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_cors_configuration" "images_bucket_cors" {
+  bucket = aws_s3_bucket.images_bucket.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["POST", "PUT"]
+    allowed_origins = ["https://${aws_cloudfront_distribution.cdn.domain_name}"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
 }
 
 # SSM
@@ -82,6 +103,14 @@ resource "aws_lambda_function" "presign_lambda" {
 resource "aws_lambda_function_url" "presign_lambda_function" {
   function_name      = aws_lambda_function.presign_lambda.function_name
   authorization_type = "NONE"
+
+  cors {
+    allow_credentials = false
+    allow_origins     = ["https://${aws_cloudfront_distribution.cdn.domain_name}"]
+    allow_methods     = ["GET"]
+    allow_headers     = ["content-type"]
+    max_age           = 86400
+  }
 }
 
 # List images lambda
@@ -126,6 +155,14 @@ resource "aws_lambda_function" "list_lambda" {
 resource "aws_lambda_function_url" "list_lambda_function" {
   function_name      = aws_lambda_function.list_lambda.function_name
   authorization_type = "NONE"
+
+  cors {
+    allow_credentials = false
+    allow_origins     = ["https://${aws_cloudfront_distribution.cdn.domain_name}"]
+    allow_methods     = ["GET"]
+    allow_headers     = ["content-type"]
+    max_age           = 86400
+  }
 }
 
 # Resize lambda
@@ -138,6 +175,7 @@ resource "aws_iam_role" "resize_lambda_role" {
 resource "aws_iam_policy" "resize_lambda_s3_buckets" {
   name = "ResizeLambdaS3Buckets"
   policy = templatefile("policies/resize_lambda_s3_buckets.json.tpl", {
+    images_bucket         = aws_s3_bucket.images_bucket.bucket,
     images_resized_bucket = aws_s3_bucket.image_resized_bucket.bucket
   })
 }
@@ -150,8 +188,7 @@ resource "aws_iam_role_policy_attachment" "resize_lambda_s3_buckets" {
 resource "aws_iam_policy" "resize_lambda_sns" {
   name = "ResizeLambdaSNS"
   policy = templatefile("policies/resize_lambda_sns.json.tpl", {
-    failure_notifications_topic_arn = aws_sns_topic.failure_notifications.arn,
-    resize_lambda_arn = aws_lambda_function.resize_lambda.arn
+    failure_notifications_topic_arn = aws_sns_topic.failure_notifications.arn
   })
 }
 
@@ -170,6 +207,7 @@ resource "aws_lambda_function" "resize_lambda" {
   filename      = "${local.root_dir}/lambdas/resize/lambda.zip"
   handler       = "handler.handler"
   runtime       = "python3.11"
+  timeout       = 30
   role          = aws_iam_role.resize_lambda_role.arn
   source_code_hash = filebase64sha256("${local.root_dir}/lambdas/resize/lambda.zip")
 
@@ -230,7 +268,6 @@ resource "aws_s3_object" "website_file_index" {
   source       = "${local.root_dir}/website/index.html"
   etag         = filemd5("${local.root_dir}/website/index.html")
   content_type = "text/html"
-  acl          = "public-read"
 }
 
 resource "aws_s3_object" "website_file_js" {
@@ -239,7 +276,6 @@ resource "aws_s3_object" "website_file_js" {
   source       = "${local.root_dir}/website/app.js"
   etag         = filemd5("${local.root_dir}/website/app.js")
   content_type = "application/javascript"
-  acl          = "public-read"
 }
 
 resource "aws_s3_object" "website_file_icon" {
@@ -248,7 +284,6 @@ resource "aws_s3_object" "website_file_icon" {
   source       = "${local.root_dir}/website/favicon.ico"
   etag         = filemd5("${local.root_dir}/website/favicon.ico")
   content_type = "image/x-icon"
-  acl          = "public-read"
 }
 
 resource "aws_cloudfront_origin_access_identity" "cdn_identity" {
@@ -284,13 +319,20 @@ resource "aws_cloudfront_distribution" "cdn" {
   default_cache_behavior {
     target_origin_id = aws_s3_bucket.website_bucket.bucket
 
-    allowed_methods = ["GET", "HEAD"]
+    allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods  = ["GET", "HEAD"]
 
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 86400
     max_ttl                = 31536000
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
   }
 
   restrictions {
@@ -308,6 +350,7 @@ resource "aws_s3_bucket_public_access_block" "website_block_public_access" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
 
 # Outputs
 
