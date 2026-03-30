@@ -351,6 +351,58 @@ resource "aws_s3_bucket_public_access_block" "website_block_public_access" {
   restrict_public_buckets = true
 }
 
+# CloudWatch Log Groups
+
+resource "aws_cloudwatch_log_group" "presign_lambda_logs" {
+  name              = "/aws/lambda/presign"
+  retention_in_days = 14
+}
+
+resource "aws_cloudwatch_log_group" "list_lambda_logs" {
+  name              = "/aws/lambda/list"
+  retention_in_days = 14
+}
+
+resource "aws_cloudwatch_log_group" "resize_lambda_logs" {
+  name              = "/aws/lambda/resize"
+  retention_in_days = 14
+}
+
+resource "aws_iam_policy" "lambda_cloudwatch_logs" {
+  name = "LambdasCloudWatchLogs"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          "${aws_cloudwatch_log_group.presign_lambda_logs.arn}:*",
+          "${aws_cloudwatch_log_group.list_lambda_logs.arn}:*",
+          "${aws_cloudwatch_log_group.resize_lambda_logs.arn}:*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "presign_lambda_cloudwatch" {
+  role       = aws_iam_role.presign_lambda_role.name
+  policy_arn = aws_iam_policy.lambda_cloudwatch_logs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "list_lambda_cloudwatch" {
+  role       = aws_iam_role.list_lambda_role.name
+  policy_arn = aws_iam_policy.lambda_cloudwatch_logs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "resize_lambda_cloudwatch" {
+  role       = aws_iam_role.resize_lambda_role.name
+  policy_arn = aws_iam_policy.lambda_cloudwatch_logs.arn
+}
 
 # Outputs
 
