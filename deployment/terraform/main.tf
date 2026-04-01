@@ -10,11 +10,16 @@ locals {
   failure_notifications_email = "failure-notifications@example.com"
 }
 
-# AWS profile
-provider "aws" {
-  region  = "us-east-1"
-  profile = "myuser-sso-admin"
-}
+# AWS profile should not be set here since 
+# it needs to be blank for .github/workflows/integration_tests.yml 
+# to work with the default LocalStack profile. Use environment variables instead.
+#
+# bash example: AWS_PROFILE=my-profile AWS_REGION=us-east-1 terraform apply
+#
+#provider "aws" {
+#  region  = "us-east-1"
+#  profile = "myuser-sso-admin"
+#}
 
 # S3
 resource "aws_s3_bucket" "images_bucket" {
