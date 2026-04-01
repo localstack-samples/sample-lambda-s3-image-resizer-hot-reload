@@ -7,11 +7,6 @@
       ],
       "Effect": "Allow",
       "Resource": "${failure_notifications_topic_arn}"
-    },
-    {
-      "Action": "lambda:InvokeFunction",
-      "Effect": "Allow",
-      "Resource": "${resize_lambda_arn}"
     }
   ]
 }

@@ -9,6 +9,8 @@
           "s3:PutObject"
       ],
       "Resource": [
+        "arn:aws:s3:::${images_bucket}",
+        "arn:aws:s3:::${images_bucket}/*",
         "arn:aws:s3:::${images_resized_bucket}",
         "arn:aws:s3:::${images_resized_bucket}/*"
       ]
