@@ -3,6 +3,10 @@ set -euo pipefail
 
 export AWS_DEFAULT_REGION=us-east-1
 
+# Without this, `lstk aws` prints a "No AWS profile found" note to stdout on
+# every invocation, which corrupts the ARNs captured via command substitution below.
+lstk setup aws --non-interactive
+
 lstk aws s3 mb s3://localstack-thumbnails-app-images
 lstk aws s3 mb s3://localstack-thumbnails-app-resized
 
