@@ -1,4 +1,4 @@
-name: Create and Test LocalStack State File
+name: Create and Test LocalStack Snapshots
 
 on:
   schedule:
@@ -17,13 +17,13 @@ permissions:
   actions: read
 
 jobs:
-  create-state-file:
-    name: Create State Files
+  create-snapshot:
+    name: Create Snapshots
     runs-on: ubuntu-latest
     permissions:
       actions: write
     outputs:
-      state_files_artifact_name: state-file-${{ github.run_id }}
+      snapshot_artifact_name: snapshot-${{ github.run_id }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -52,26 +52,26 @@ jobs:
         run: |
           deployment/build-lambdas.sh && deployment/aws/deploy.sh
 
-      - name: Export LocalStack State File
-        id: export_state
+      - name: Export LocalStack Snapshot
+        id: export_snapshot
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         run: |
-          echo "Exporting LocalStack state..."
-          lstk save state-file.snapshot
-          ls -la state-file.snapshot # Verify the file exists
-          echo "state_files_artifact_name=state-file-${{ github.run_id }}" >> $GITHUB_OUTPUT
+          echo "Exporting LocalStack snapshot..."
+          lstk save snapshot.snapshot
+          ls -la snapshot.snapshot # Verify the file exists
+          echo "snapshot_artifact_name=snapshot-${{ github.run_id }}" >> $GITHUB_OUTPUT
 
-      - name: Upload State File Artifact
+      - name: Upload Snapshot Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.export_state.outputs.state_files_artifact_name }}
-          path: state-file.snapshot
+          name: ${{ steps.export_snapshot.outputs.snapshot_artifact_name }}
+          path: snapshot.snapshot
           retention-days: 1
 
-  test-state-file:
-    name: Test State File
-    needs: create-state-file
+  test-snapshot:
+    name: Test Snapshot
+    needs: create-snapshot
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -97,18 +97,18 @@ jobs:
         run: |
           lstk start --type aws
 
-      - name: Download State File Artifact
+      - name: Download Snapshot Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.create-state-file.outputs.state_files_artifact_name }}
+          name: ${{ needs.create-snapshot.outputs.snapshot_artifact_name }}
 
-      - name: Inject State File
+      - name: Inject Snapshot
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         run: |
-          echo "Importing LocalStack state from state-file.snapshot..."
+          echo "Importing LocalStack snapshot from snapshot.snapshot..."
           ls -la # Check if download was successful
-          lstk load state-file.snapshot
+          lstk load snapshot.snapshot
 
       - name: Run Tests
         env:
