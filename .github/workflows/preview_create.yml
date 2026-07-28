@@ -24,10 +24,14 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install dependencies
+      - name: Install lstk
         run: |
-          pip install awscli-local
+          npm install -g @localstack/lstk
 
+      # NOTE(lstk): this step's ephemeral hosting + public preview URL + PR comment
+      # is provided by the setup-localstack action itself and has no lstk equivalent
+      # (lstk only starts/stops a local container), so it's kept as-is rather than
+      # switched to `lstk start`.
       - name: Deploy Preview
         uses: LocalStack/setup-localstack@main
         env:
@@ -37,8 +41,7 @@ jobs:
           state-backend: ephemeral
           state-action: start
           include-preview: 'true'
-          install-awslocal: 'true'
           preview-cmd: |
-            # Add your custom deployment commands here. 
+            # Add your custom deployment commands here.
             # Below is an example for the Image resizer application.
-            deployment/build-lambdas.sh && deployment/awslocal/deploy.sh
+            deployment/build-lambdas.sh && deployment/aws/deploy.sh

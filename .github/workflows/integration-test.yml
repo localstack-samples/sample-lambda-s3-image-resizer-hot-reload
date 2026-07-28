@@ -42,23 +42,20 @@ jobs:
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Install Terraform Local
+      - name: Install lstk
         run: |
-          pip install --upgrade terraform-local
+          npm install -g @localstack/lstk
 
       - name: Set up Project
         run: |
           pip install -r requirements-dev.txt
 
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@v0.2.4
-        with:
-          image-tag: 'latest'
-          use-pro: 'true'
-          configuration: LS_LOG=trace
-          install-awslocal: 'true'
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+          DEBUG: 1
+        run: |
+          lstk start --type aws
 
       - name: Build lambdas
         run: |
@@ -67,13 +64,13 @@ jobs:
       - name: Deploy infrastructure
         run: |
           cd deployment/terraform
-          tflocal init
-          tflocal apply --auto-approve
+          lstk tf init
+          lstk tf apply --auto-approve
 
       - name: Show localstack logs
         if: always()
         run: |
-          localstack logs
+          lstk logs
 
       - name: Send a Slack notification
         if: failure() || github.event_name != 'pull_request'
@@ -124,15 +121,16 @@ jobs:
         run: |
           pip install -r requirements-dev.txt
 
+      - name: Install lstk
+        run: |
+          npm install -g @localstack/lstk
+
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@v0.2.4
-        with:
-          image-tag: 'latest'
-          use-pro: 'true'
-          configuration: LS_LOG=trace
-          install-awslocal: 'true'
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+          DEBUG: 1
+        run: |
+          lstk start --type aws
 
       - name: Build lambdas
         run: |
@@ -140,7 +138,7 @@ jobs:
 
       - name: Deploy infrastructure
         run: |
-          deployment/awslocal/deploy.sh
+          deployment/aws/deploy.sh
 
       - name: Run Tests
         env:
@@ -154,7 +152,7 @@ jobs:
       - name: Show localstack logs
         if: always()
         run: |
-          localstack logs
+          lstk logs
 
       - name: Send a Slack notification
         if: failure() || github.event_name != 'pull_request'
