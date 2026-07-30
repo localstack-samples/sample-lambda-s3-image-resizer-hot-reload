@@ -138,6 +138,7 @@ resource "aws_iam_role" "resize_lambda_role" {
 resource "aws_iam_policy" "resize_lambda_s3_buckets" {
   name = "ResizeLambdaS3Buckets"
   policy = templatefile("policies/resize_lambda_s3_buckets.json.tpl", {
+    images_bucket         = aws_s3_bucket.images_bucket.bucket
     images_resized_bucket = aws_s3_bucket.image_resized_bucket.bucket
   })
 }
@@ -180,6 +181,12 @@ resource "aws_lambda_function" "resize_lambda" {
   dead_letter_config {
     target_arn = aws_sns_topic.failure_notifications.arn
   }
+}
+
+resource "aws_lambda_function_event_invoke_config" "resize_lambda_invoke_config" {
+  function_name          = aws_lambda_function.resize_lambda.function_name
+  maximum_event_age_in_seconds = 3600
+  maximum_retry_attempts       = 0
 }
 
 # SNS Topic for failure notifications

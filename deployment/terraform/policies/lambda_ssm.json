@@ -4,10 +4,10 @@
     {
       "Effect": "Allow",
       "Action": [
-        "ssm:GetParameters"
+        "ssm:GetParameter"
       ],
       "Resource": [
-        "arn:aws:ssm:::parameter/localstack-thumbnail-app/*"
+        "arn:aws:ssm:us-east-1:000000000000:parameter/localstack-thumbnail-app/*"
       ]
     }
   ]

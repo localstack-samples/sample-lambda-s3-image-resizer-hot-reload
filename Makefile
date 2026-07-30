@@ -10,18 +10,16 @@ usage:
 ## Check if all required prerequisites are installed
 check:
 	@command -v docker > /dev/null 2>&1 || { echo "Docker is not installed. Please install Docker and try again."; exit 1; }
-	@command -v localstack > /dev/null 2>&1 || { echo "LocalStack is not installed. Please install LocalStack and try again."; exit 1; }
 	@command -v aws > /dev/null 2>&1 || { echo "AWS CLI is not installed. Please install AWS CLI and try again."; exit 1; }
-	@command -v awslocal > /dev/null 2>&1 || { echo "awslocal is not installed. Please install awslocal and try again."; exit 1; }
-	@command -v python > /dev/null 2>&1 || { echo "Python is not installed. Please install Python and try again."; exit 1; }
+	@command -v lstk > /dev/null 2>&1 || { echo "lstk is not installed. Please install lstk and try again."; exit 1; }
+	@command -v python3 > /dev/null 2>&1 || { echo "Python 3 is not installed. Please install Python 3 and try again."; exit 1; }
 	@command -v jq > /dev/null 2>&1 || { echo "jq is not installed. Please install jq and try again."; exit 1; }
 	@echo "All required prerequisites are available."
 	
 ## Install dependencies
 install:
 	@echo "Installing dependencies..."
-	pip install virtualenv
-	virtualenv venv
+	python3 -m venv venv
 	bash -c "source venv/bin/activate && pip install -r requirements-dev.txt"
 	@echo "Dependencies installed successfully."
 
@@ -31,20 +29,20 @@ build-lambdas:
 	bash -c "source venv/bin/activate && deployment/build-lambdas.sh"
 	@echo "Lambda functions built successfully."
 
-## Deploy the application locally using `awslocal`, a wrapper for the AWS CLI
+## Deploy the application locally using `lstk aws`, the LocalStack AWS CLI proxy
 deploy:
 	@echo "Deploying the application..."
 	@make build-lambdas
-	deployment/awslocal/deploy.sh
+	deployment/aws/deploy.sh
 	@echo "Application deployed successfully."
 
-## Deploy the application locally using `tflocal`, a wrapper for the Terraform CLI
+## Deploy the application locally using `lstk tf`, the LocalStack Terraform CLI proxy
 deploy-terraform:
 	@command -v terraform > /dev/null 2>&1 || { echo "Terraform is not installed. Please install Terraform and try again."; exit 1; }
-	@which tflocal || pip install terraform-local
+	@command -v lstk > /dev/null 2>&1 || { echo "lstk is not installed. Please install lstk and try again."; exit 1; }
 	@echo "Deploying the application..."
 	@make build-lambdas
-	deployment/tflocal/deploy.sh
+	cd deployment/terraform && lstk tf init && lstk tf apply --auto-approve
 	@echo "Application deployed successfully."
 
 ## Run tests locally
@@ -57,22 +55,17 @@ test:
 start:
 	@echo "Starting LocalStack..."
 	@test -n "${LOCALSTACK_AUTH_TOKEN}" || (echo "LOCALSTACK_AUTH_TOKEN is not set. Find your token at https://app.localstack.cloud/workspace/auth-token"; exit 1)
-	@LOCALSTACK_AUTH_TOKEN=$(LOCALSTACK_AUTH_TOKEN) localstack start -d
+	@LOCALSTACK_AUTH_TOKEN=$(LOCALSTACK_AUTH_TOKEN) lstk start
 	@echo "LocalStack started successfully."
 
 ## Stop LocalStack
 stop:
 	@echo "Stopping LocalStack..."
-	@localstack stop
+	@lstk stop
 	@echo "LocalStack stopped successfully."
-
-## Make sure the LocalStack container is up
-ready:
-		@echo Waiting on the LocalStack container...
-		@localstack wait -t 30 && echo LocalStack is ready to use! || (echo Gave up waiting on LocalStack, exiting. && exit 1)
 
 ## Save the logs in a separate file
 logs:
-		@localstack logs > logs.txt
+		@lstk logs > logs.txt
 
-.PHONY: usage install start ready build-lambdas deploy test logs stop
+.PHONY: usage install start build-lambdas deploy deploy-terraform test logs stop

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 (cd lambdas/presign; rm -f lambda.zip; zip lambda.zip handler.py)
 

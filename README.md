@@ -34,10 +34,10 @@ The following diagram shows the architecture that this sample application builds
 ## Prerequisites
 
 - A valid [LocalStack for AWS license](https://localstack.cloud/pricing). Your license provides a [`LOCALSTACK_AUTH_TOKEN`](https://docs.localstack.cloud/getting-started/auth-token/) to activate LocalStack.
-- [`localstack` CLI](https://docs.localstack.cloud/getting-started/installation/#localstack-cli).
-- [AWS CLI](https://docs.localstack.cloud/user-guide/integrations/aws-cli/) with the [`awslocal` wrapper](https://docs.localstack.cloud/user-guide/integrations/aws-cli/#localstack-aws-cli-awslocal).
+- [`lstk` CLI](https://docs.localstack.cloud/aws/tooling/lstk/).
+- [AWS CLI](https://docs.localstack.cloud/user-guide/integrations/aws-cli/) with the [`lstk aws` proxy](https://docs.localstack.cloud/aws/tooling/lstk/).
 - [Python 3.11](https://www.python.org/downloads/) (same version as the Lambda runtime)
-- [`make`](https://www.gnu.org/software/make/) (**optional**, but recommended for running the sample application)
+- [`make`](https://www.gnu.org/software/make/) for running the sample application via the provided Makefile
 
 ## Installation
 
@@ -55,33 +55,30 @@ Then, navigate to the project directory:
 cd sample-lambda-s3-image-resizer-hot-reload
 ```
 
-Create a virtual environment and install the development dependencies:
+Install the development dependencies into a virtual environment:
 
 ```shell
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+make install
 ```
 
 ## Deployment
 
-Start LocalStack with the `LOCALSTACK_AUTH_TOKEN` pre-configured:
+Start LocalStack:
 
 ```shell
-localstack auth set-token <your-auth-token>
-localstack start
+make start
 ```
 
 Before deploying the sample application, you need to build the Lambda functions. Run the following command:
 
 ```shell
-deployment/build-lambdas.sh
+make build-lambdas
 ```
 
 To deploy the sample application, run the following command:
 
 ```shell
-deployment/awslocal/deploy.sh
+make deploy
 ```
 
 The output will show the Lambda function URLs that you can use in the web application:
@@ -105,7 +102,7 @@ https://user-images.githubusercontent.com/3996682/229314248-86122e9e-0150-4292-b
 You can run full end-to-end integration tests using the following command:
 
 ```shell
-pytest tests/
+make test
 ```
 
 ## Use Cases
@@ -117,7 +114,7 @@ This sample demonstrates LocalStack's Lambda hot reloading capability, which ena
 To enable hot reloading for the `list` Lambda function, use the special `hot-reload` bucket name with an absolute path to your Lambda code:
 
 ```shell
-awslocal lambda update-function-code --function-name list \
+lstk aws lambda update-function-code --function-name list \
   --s3-bucket hot-reload --s3-key "$(pwd)/lambdas/list"
 ```
 
