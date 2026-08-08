@@ -28,36 +28,58 @@ def get_bucket_name() -> str:
 
 
 def resize_image(image_path, resized_path):
-    with Image.open(image_path) as image:
-        # Calculate the thumbnail size
-        width, height = image.size
-        max_width, max_height = MAX_DIMENSIONS
-        if width > max_width or height > max_height:
-            ratio = max(width / max_width, height / max_height)
-            width = int(width / ratio)
-            height = int(height / ratio)
-        size = width, height
-        # Generate the resized image
-        image.thumbnail(size)
-        image.save(resized_path)
+    try:
+        # Open the image using PIL
+        with Image.open(image_path) as image:
+            # Calculate thumbnail size
+            width, height = image.size
+            max_width, max_height = MAX_DIMENSIONS
+            if width > max_width or height > max_height:
+                ratio = max(width / max_width, height / max_height)
+                width = int(width / ratio)
+                height = int(height / ratio)
+            size = width, height
+
+            # Resize the image using thumbnail method
+            image.thumbnail(size)
+
+            # Save the resized image
+            image.save(resized_path)
+            return True
+    except Exception as e:
+        print(f"Error resizing image: {e}")
+        return False
 
 
-def download_and_resize(bucket, key) -> str:
+def download_and_resize(bucket, key, target_bucket) -> str:
     tmpkey = key.replace("/", "")
     download_path = f"/tmp/{uuid.uuid4()}{tmpkey}"
     upload_path = f"/tmp/resized-{tmpkey}"
     s3.download_file(bucket, key, download_path)
-    resize_image(download_path, upload_path)
-    return upload_path
+    success = resize_image(download_path, upload_path)
+    if success:
+        s3.upload_file(upload_path, target_bucket, key)
+        return upload_path
+    else:
+        print(f"Failed to resize image: {key}")
+        return None
 
 
 def handler(event, context):
+    print(f"Event received: {event}")
     target_bucket = get_bucket_name()
 
     for record in event["Records"]:
         source_bucket = record["s3"]["bucket"]["name"]
         key = unquote_plus(record["s3"]["object"]["key"])
-        print(source_bucket, key)
+        print(f"Processing {source_bucket}/{key}")
 
-        resized_path = download_and_resize(source_bucket, key)
-        s3.upload_file(resized_path, target_bucket, key)
+        try:
+            resized_path = download_and_resize(source_bucket, key, target_bucket)
+            if resized_path:
+                print(f"Resized image saved to: {resized_path}")
+            else:
+                print(f"Skipping non-image file: {key}")
+        except Exception as e:
+            print(f"Error processing image: {e}")
+            # Continue processing other records even if one fails
