@@ -1,3 +1,11 @@
+provider "aws" {
+  default_tags {
+    tags = {
+      aws-apn-id = "pc:9yq38ki5jw5mas7jhjthpgveo"
+    }
+  }
+}
+
 locals {
   # TO-DO: The environment variable STAGE is required for Lambdas to connect to LocalStack endpoints. 
   # The environment variable can be removed once Lambdas are adapted to support transparent endpoint injection.
