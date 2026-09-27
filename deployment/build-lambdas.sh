@@ -21,7 +21,7 @@ else
         cd lambdas/resize
         rm -rf package lambda.zip
         mkdir package
-        pip3 install -r requirements.txt --platform manylinux2014_x86_64 --only-binary=:all: -t package
+        pip3 install -r requirements.txt --platform manylinux2014_x86_64 --only-binary=:all: --python-version 311 -t package
         zip lambda.zip handler.py
         cd package
         zip -r ../lambda.zip *;
